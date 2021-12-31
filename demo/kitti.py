@@ -1,10 +1,11 @@
 import os
 import json
-from util import ProgressBar
+import torch
+from util import ProgressBar, Hook
 from mmdet.apis import init_detector, inference_detector, show_result_pyplot
 
-kitti_root_dir = '../data/kitti'
-vkitti_root_dir = '../data/kitti'
+kitti_root_dir = '../data/kitti_test'
+vkitti_root_dir = '../data/vkitti_test'
 
 model_configs = {'faster_rcnn':
                      {'config_file': '../checkpoints/kitti/faster_rcnn/faster_rcnn_r50_fpn_1x_kitti.py',
@@ -26,6 +27,10 @@ model_configs = {'faster_rcnn':
 def kitti_evaluate(detector='faster_rcnn'):
     model = init_detector(model_configs[detector]['config_file'],
                           model_configs[detector]['checkpoint'], device='cuda:0')
+    hook_fpn = Hook(model.rpn_head.rpn_cls)
+    hook = Hook(model.roi_head.bbox_head.shared_fcs._modules['1'])
+    hook2 = Hook(model.roi_head.bbox_head.fc_cls)
+    hook_reg = Hook(model.roi_head.bbox_head.fc_reg)
     dates = sorted(os.listdir(kitti_root_dir))
     for date in dates:
         date_path = os.path.join(kitti_root_dir, date)
@@ -43,6 +48,10 @@ def kitti_evaluate(detector='faster_rcnn'):
                 infer_frame = {'frame_id': i, 'objs': []}
                 image_path = os.path.join(image_select, image)
                 result = inference_detector(model, image_path)
+                hook.calc()
+                soft = torch.nn.Softmax(dim=1)
+                temp = soft(hook2.output)
+                temp = temp.data.cpu().numpy()
                 for cls in result:
                     infer_frame['objs'].append(cls.tolist())
                 infer_results['results'].append(infer_frame)
@@ -80,4 +89,4 @@ def vkitti_evaluate(detector='faster_rcnn'):
 
 
 if __name__ == '__main__':
-    kitti_evaluate('yolov3')
+    kitti_evaluate('faster_rcnn')
