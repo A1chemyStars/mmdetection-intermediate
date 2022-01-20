@@ -1,5 +1,7 @@
+import gc
 import os
 import json
+import tracemalloc
 import numpy as np
 import torch
 import torch.nn as nn
@@ -28,8 +30,8 @@ def iou(box1, box2):
 def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
     model = init_detector(model_configs[detector]['config_file'],
                           model_configs[detector]['checkpoint'], device='cuda:0')
-    hook_fc_share = Hook(model.roi_head.bbox_head.shared_fcs._modules['1'])
-    hook_cls = Hook(model.roi_head.bbox_head.fc_cls)
+    # hook_fc_share = Hook(model.roi_head.bbox_head.shared_fcs._modules['1'])
+    # hook_cls = Hook(model.roi_head.bbox_head.fc_cls)
 
     fcs = []
     logits = []
@@ -43,6 +45,7 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
     labels = anno['annotations']
     num_obj = len(labels)
     count = 0
+    tracemalloc.start()
     for ind, img in enumerate(images):
         img_file = img['file_name']
         img_path = os.path.join(data_dir, img_file)
@@ -55,14 +58,16 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
                 count += 1
             else:
                 break
+        hook_fc_share = Hook(model.roi_head.bbox_head.shared_fcs._modules['1'])
+        hook_cls = Hook(model.roi_head.bbox_head.fc_cls)
 
         result = inference_detector(model, img_path)
         hook_fc_share.calc()
-        fc = hook_fc_share.cal_output.cpu().numpy()
-        logit = hook_cls.output.cpu().numpy()
+        fc = hook_fc_share.cal_output.cpu().numpy().copy().tolist()
+        logit = hook_cls.output.cpu().numpy().copy().tolist()
         pred = np.argmax(logit, axis=1)
         soft = nn.Softmax(dim=1)
-        soft_obj = soft(hook_cls.output).data.cpu().numpy()
+        soft_obj = soft(hook_cls.output).data.cpu().numpy().copy()
         soft_obj = np.max(soft_obj, axis=1)
 
         for i in range(len(result)-1):
@@ -80,14 +85,23 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
                         if iou(item[:-1], obj[:-1]) > 0.7 and obj[-1] == i:
                             match_flag = True
                             break
-                    preds.append(i)
-                    fcs.append(fc[ind_match])
-                    logits.append(logit[ind_match])
-                    softmax.append(soft_obj[ind_match])
-                    if match_flag:
-                        flags.append(1)
-                    else:
-                        flags.append(0)
+                    if ind_match is not None:
+                        preds.append(i)
+                        fcs.append(fc[ind_match])
+                        logits.append(logit[ind_match])
+                        softmax.append(soft_obj[ind_match])
+                        if match_flag:
+                            flags.append(1)
+                        else:
+                            flags.append(0)
+        del result
+        del fc
+        del logit
+        hook_cls.close()
+        hook_fc_share.close()
+        gc.collect()
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics('lineno')
 
     np.save('fcs.npy', np.array(fcs))
     np.save('logits.npy', np.array(logits))

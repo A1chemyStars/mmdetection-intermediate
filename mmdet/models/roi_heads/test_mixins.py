@@ -123,7 +123,7 @@ class BBoxTestMixin:
                         (0, self.bbox_head.fc_cls.out_features))
 
             else:
-                det_bbox, det_label = self.bbox_head.get_bboxes(
+                det_bbox, det_label, det_inds = self.bbox_head.get_bboxes(
                     rois[i],
                     cls_score[i],
                     bbox_pred[i],

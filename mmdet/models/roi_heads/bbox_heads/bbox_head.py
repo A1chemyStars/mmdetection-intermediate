@@ -371,11 +371,11 @@ class BBoxHead(BaseModule):
         if cfg is None:
             return bboxes, scores
         else:
-            det_bboxes, det_labels = multiclass_nms(bboxes, scores,
+            det_bboxes, det_labels, det_inds = multiclass_nms(bboxes, scores,
                                                     cfg.score_thr, cfg.nms,
-                                                    cfg.max_per_img)
+                                                    cfg.max_per_img, return_inds=True)
 
-            return det_bboxes, det_labels
+            return det_bboxes, det_labels, det_inds
 
     @force_fp32(apply_to=('bbox_preds', ))
     def refine_bboxes(self, rois, labels, bbox_preds, pos_is_gts, img_metas):
