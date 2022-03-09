@@ -20,7 +20,13 @@ model_configs = {'faster_rcnn':
                  'ssd512': {'config_file': '', 'checkpoint': ''},
                  'yolox': {'config_file': '', 'checkpoint': ''},
                  'cornernet': {'config_file': '', 'checkpoint': ''},
-                 'centernet': {'config_file': '', 'checkpoint': ''}
+                 'centernet': {'config_file': '', 'checkpoint': ''},
+                 'faster_rcnn_bdd':
+                     {'config_file': '../configs/bdd100k/faster_rcnn_r50_fpn_1x_det_bdd100k.py',
+                      'checkpoint': '../checkpoints/bdd100k/faster_rcnn_r50_fpn_1x_det_bdd100k.pth'},
+                 'faster_rcnn_cityscapes':
+                     {'config_file': '../configs/cityscapes/faster_rcnn_r50_fpn_1x_cityscapes.py',
+                      'checkpoint': '../checkpoints/cityscapes/faster_rcnn_r50_fpn_1x_cityscapes_20200502-829424c0.pth'}
                  }
 
 

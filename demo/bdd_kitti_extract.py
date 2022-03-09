@@ -3,31 +3,36 @@ import os
 import json
 import tracemalloc
 import numpy as np
-import torch
 import torch.nn as nn
+
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 from kitti import model_configs
 from util import ProgressBar, Hook
 from mmdet.apis import init_detector, inference_detector, show_result_pyplot
-from MulticoreTSNE import MulticoreTSNE as TSNE
+from kitti_extract import iou
 
 
 data_dir = '/home/kengo/Documents/GitHub/mmdetection-intermediate/data/kitti/data_object_image_2/training/image_2'
 
+'''
+BDD100K Categories:        KITTI Categories:
+1 pedestrain               1 Car
+2 rider                    2 Van
+3 car                      3 Truck
+4 truck                    4 Pedestrian
+5 bus                      5 Person_sitting
+6 train                    6 Cyclist
+7 motorcycle               7 Tram
+8 bicycle                  8 Misc
+9 traffic light
+10 traffic sign 
+'''
 
-def iou(box1, box2):
-    x_left = max(box1[0], box2[0])
-    y_top = max(box1[1], box2[1])
-    x_right = min(box1[2], box2[2])
-    y_bottom = min(box1[3], box1[3])
-    intersec = max(0.0, x_right - x_left + 1) * max(0.0, y_bottom - y_top + 1)
-    if intersec == 0:
-        return 0
-    else:
-        return intersec / ((box1[2]-box1[0]) * (box1[3]-box1[1]) + (box2[2]-box2[0]) * (box2[3]-box2[1]) - intersec)
+kitti_bdd_map = {0: 2, 1: 2, 2: 3, 3: 0, 4: 10, 5: 1, 6: 5, 7: 10}
 
 
-def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
+def eval_bdd_on_kitti(detector='faster_rcnn_bdd', num_classes=10):
     model = init_detector(model_configs[detector]['config_file'],
                           model_configs[detector]['checkpoint'], device='cuda:0')
     # hook_fc_share = Hook(model.roi_head.bbox_head.shared_fcs._modules['1'])
@@ -54,7 +59,7 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
         while True:
             if count < num_obj and labels[count]['image_id'] == ind:
                 bbox = labels[count]['bbox']
-                obj = [bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3], labels[count]['category_id']]
+                obj = [bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3], kitti_bdd_map[labels[count]['category_id']]]
                 obj_img.append(obj)
                 count += 1
             else:
@@ -71,7 +76,7 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
         soft_obj = soft(hook_cls.output).data.cpu().numpy().copy()
         soft_obj = np.max(soft_obj, axis=1).tolist()
 
-        for i in range(len(result)-1):
+        for i in range(len(result)-2):
             result_cls = result[i]
             indices_cls = indices[i]
             if result_cls is not None:
@@ -81,9 +86,10 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
                     assert ind_offset == i
                     match_flag = False
                     for obj in obj_img:
-                        if iou(item[:-1], obj[:-1]) > 0.7 and obj[-1] == i:
-                            match_flag = True
-                            break
+                        if iou(item[:-1], obj[:-1]) > 0.7:
+                            if obj[-1] == i or i == 4 and obj[-1] == 3:
+                                match_flag = True
+                                break
                     preds.append(i)
                     fcs.append(fc[ind_match])
                     logits.append(logit[ind_match])
@@ -94,18 +100,18 @@ def eval_kitti_detection(detector='faster_rcnn', num_classes=8):
                         flags.append(0)
         hook_fc_share.close()
         hook_cls.close()
-        gc.collect()
+        # gc.collect()
         # snapshot = tracemalloc.take_snapshot()
         # top_stats = snapshot.statistics('lineno')
         progress.current += 1
         progress()
 
-    np.save('fcs.npy', np.array(fcs))
-    np.save('logits.npy', np.array(logits))
-    np.save('softmax.npy', np.array(softmax))
-    np.save('preds.npy', np.array(preds))
-    np.save('flags.npy', np.array(flags))
+    np.save('bdd_fcs.npy', np.array(fcs))
+    np.save('bdd_logits.npy', np.array(logits))
+    np.save('bdd_softmax.npy', np.array(softmax))
+    np.save('bdd_preds.npy', np.array(preds))
+    np.save('bdd_flags.npy', np.array(flags))
 
 
 if __name__ == '__main__':
-    eval_kitti_detection()
+    eval_bdd_on_kitti()

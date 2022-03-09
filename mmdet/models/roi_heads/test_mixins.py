@@ -112,18 +112,20 @@ class BBoxTestMixin:
         # apply bbox post-processing to each image individually
         det_bboxes = []
         det_labels = []
+        det_indices = []
         for i in range(len(proposals)):
             if rois[i].shape[0] == 0:
                 # There is no proposal in the single image
                 det_bbox = rois[i].new_zeros(0, 5)
                 det_label = rois[i].new_zeros((0, ), dtype=torch.long)
+                det_index = rois[i].new_zeros((0, ), dtype=torch.int)
                 if rcnn_test_cfg is None:
                     det_bbox = det_bbox[:, :4]
                     det_label = rois[i].new_zeros(
                         (0, self.bbox_head.fc_cls.out_features))
 
             else:
-                det_bbox, det_label, det_inds = self.bbox_head.get_bboxes(
+                det_bbox, det_label, det_index = self.bbox_head.get_bboxes(
                     rois[i],
                     cls_score[i],
                     bbox_pred[i],
@@ -133,7 +135,8 @@ class BBoxTestMixin:
                     cfg=rcnn_test_cfg)
             det_bboxes.append(det_bbox)
             det_labels.append(det_label)
-        return det_bboxes, det_labels
+            det_indices.append(det_index)
+        return det_bboxes, det_labels, det_indices
 
     def aug_test_bboxes(self, feats, img_metas, proposal_list, rcnn_test_cfg):
         """Test det bboxes with test time augmentation."""

@@ -250,11 +250,11 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
         """
         assert self.with_bbox, 'Bbox head must be implemented.'
 
-        det_bboxes, det_labels = self.simple_test_bboxes(
+        det_bboxes, det_labels, det_indices = self.simple_test_bboxes(
             x, img_metas, proposal_list, self.test_cfg, rescale=rescale)
 
         bbox_results = [
-            bbox2result(det_bboxes[i], det_labels[i],
+            bbox2result(det_bboxes[i], det_labels[i], det_indices[i],
                         self.bbox_head.num_classes)
             for i in range(len(det_bboxes))
         ]

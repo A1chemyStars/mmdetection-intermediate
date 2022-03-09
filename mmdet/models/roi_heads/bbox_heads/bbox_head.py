@@ -374,7 +374,8 @@ class BBoxHead(BaseModule):
             det_bboxes, det_labels, det_inds = multiclass_nms(bboxes, scores,
                                                     cfg.score_thr, cfg.nms,
                                                     cfg.max_per_img, return_inds=True)
-
+            # tmp = bboxes.data.cpu().numpy()
+            # tmp2 = scores.data.cpu().numpy()
             return det_bboxes, det_labels, det_inds
 
     @force_fp32(apply_to=('bbox_preds', ))
